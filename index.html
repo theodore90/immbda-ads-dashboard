@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IMM BDA — Digital Ads Dashboard</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -250,13 +251,17 @@ input[type=file]{display:none}
 
 <!-- Navbar -->
 <nav class="navbar">
-  <div class="navbar-brand"><span>📊</span> IMM BDA Ads Dashboard</div>
+  <div class="navbar-brand">
+    <div class="brand-icon"><i class="ti ti-chart-bar" aria-hidden="true"></i></div>
+    IMM BDA
+    <span class="brand-sub">Ads Dashboard</span>
+  </div>
   <div class="navbar-right">
     <select id="selClient" style="min-width:110px"><option value="">All clients</option></select>
     <select id="selCampaign" style="min-width:120px"><option value="">All campaigns</option></select>
     <select id="selPlatform" style="min-width:100px"><option value="">All platforms</option></select>
-    <button class="btn sm" id="btnPDF" style="display:none">📄 PDF</button>
-    <button class="btn sm" id="btnExcel" style="display:none">📊 Excel</button>
+    <button class="btn sm" id="btnPDF" style="display:none"><i class="ti ti-file-type-pdf" aria-hidden="true"></i> PDF</button>
+    <button class="btn sm" id="btnExcel" style="display:none"><i class="ti ti-table-export" aria-hidden="true"></i> Excel</button>
   </div>
 </nav>
 
@@ -265,66 +270,68 @@ input[type=file]{display:none}
 
   <!-- Source tabs -->
   <div class="src-tabs">
-    <div class="stab active" data-src="upload">⬆️ Upload CSV</div>
-    <div class="stab" data-src="sheet">🔗 Google Sheet</div>
-    <div class="stab" data-src="manual">✏️ Nhập thủ công</div>
+    <div class="stab active" data-src="upload"><i class="ti ti-upload" aria-hidden="true"></i><span class="stab-label">Upload CSV</span></div>
+    <div class="stab" data-src="sheet"><i class="ti ti-brand-google" aria-hidden="true"></i><span class="stab-label">Google Sheet</span></div>
+    <div class="stab" data-src="manual"><i class="ti ti-pencil" aria-hidden="true"></i><span class="stab-label">Nhập thủ công</span></div>
   </div>
 
   <!-- Upload panel -->
   <div id="panelUpload">
     <div class="upload-zone" id="dropZone">
-      <div class="icon">📂</div>
-      <p>Kéo thả file CSV vào đây hoặc <span class="link"><label for="csvFile">chọn file</label></span></p>
-      <p style="margin-top:6px"><code>Date, Client, Campaign, Platform, Spend, Impressions, Clicks, Conversions, Revenue</code> + Target columns</p>
+      <div class="uz-icon"><i class="ti ti-cloud-upload" aria-hidden="true"></i></div>
+      <h4>Kéo thả file CSV vào đây</h4>
+      <p>hoặc <span class="link"><label for="csvFile">chọn file từ máy tính</label></span></p>
+      <p style="margin-top:10px"><code>Date, Client, Campaign, Platform, Spend, Impressions, Clicks, Conversions, Revenue</code> + Target columns</p>
       <input type="file" id="csvFile" accept=".csv">
     </div>
   </div>
 
   <!-- Sheet panel -->
   <div id="panelSheet" style="display:none">
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-title">🔗 Kết nối Google Sheet qua Apps Script</div>
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title" style="margin:0"><i class="ti ti-link" style="font-size:14px;vertical-align:-2px;margin-right:6px" aria-hidden="true"></i>Kết nối Google Sheet qua Apps Script</div>
+      </div>
       <div class="url-row">
         <span class="status-dot dot-idle" id="statusDot"></span>
-        <input type="url" id="sheetUrl" placeholder="Dán Web App URL (https://script.google.com/macros/s/...)" style="flex:1">
-        <button class="btn primary" id="btnFetch">🔄 Fetch</button>
+        <input type="url" id="sheetUrl" placeholder="Dán Web App URL (https://script.google.com/macros/s/...)">
+        <button class="btn primary" id="btnFetch"><i class="ti ti-refresh" aria-hidden="true"></i> Fetch</button>
       </div>
-      <div class="status-text" id="statusText">Chưa kết nối</div>
+      <div class="status-text" id="statusText">Chưa kết nối — nhập URL và nhấn Fetch</div>
 
-      <div id="mapperSection" style="display:none;margin-top:14px">
-        <div style="font-size:13px;font-weight:500;margin-bottom:8px">Map cột</div>
+      <div id="mapperSection" style="display:none;margin-top:18px">
+        <div class="section-label"><i class="ti ti-columns" aria-hidden="true"></i>Map cột từ Sheet sang dashboard</div>
         <div class="mapper" id="mapperTable"></div>
-        <div style="font-size:12px;font-weight:500;color:var(--text2);margin:10px 0 4px">Preview 3 dòng</div>
+        <div class="section-label" style="margin-top:14px"><i class="ti ti-eye" aria-hidden="true"></i>Preview 3 dòng đầu</div>
         <div class="preview" id="previewBox"></div>
 
         <div class="sync-row">
           <label class="toggle-wrap"><input type="checkbox" id="autoSync"><span class="toggle-slider"></span></label>
           <span>Auto sync mỗi</span>
-          <select id="syncInterval" style="padding:4px 8px;font-size:12px;width:auto">
+          <select id="syncInterval" style="padding:5px 8px;font-size:12px;width:auto">
             <option value="60">1 phút</option>
             <option value="300" selected>5 phút</option>
             <option value="600">10 phút</option>
             <option value="1800">30 phút</option>
           </select>
-          <span id="nextSyncLabel" style="color:var(--text3)"></span>
+          <span id="nextSyncLabel" style="color:var(--t3)"></span>
         </div>
 
-        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">
-          <button class="btn green" id="btnApplySheet">📊 Áp dụng vào báo cáo</button>
-          <button class="btn sm ghost" id="btnRefetch">🔄 Refresh</button>
-          <span style="font-size:12px;color:var(--text3)" id="syncInfo"></span>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center">
+          <button class="btn green-btn" id="btnApplySheet"><i class="ti ti-chart-bar" aria-hidden="true"></i> Áp dụng vào báo cáo</button>
+          <button class="btn sm ghost" id="btnRefetch"><i class="ti ti-refresh" aria-hidden="true"></i> Refresh</button>
+          <span style="font-size:12px;color:var(--t3)" id="syncInfo"></span>
         </div>
       </div>
 
-      <details style="margin-top:14px">
-        <summary style="font-size:12px;color:var(--accent);cursor:pointer;user-select:none">📖 Hướng dẫn cài Apps Script</summary>
-        <div class="guide">
-          <b>Bước 1:</b> Mở Google Sheet → Extensions → Apps Script<br>
-          <b>Bước 2:</b> Dán code Apps Script (xem hướng dẫn đi kèm) → Save<br>
-          <b>Bước 3:</b> Deploy → New deployment → Web App<br>
-          &nbsp;&nbsp;• Execute as: <b>Me</b> · Who has access: <b>Anyone</b><br>
-          <b>Bước 4:</b> Copy Web App URL → dán vào ô trên → Fetch<br>
-          <b>Bước 5:</b> Map cột → Áp dụng vào báo cáo
+      <details style="margin-top:16px">
+        <summary style="font-size:12px;color:var(--blue);cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px"><i class="ti ti-book" style="font-size:14px" aria-hidden="true"></i> Hướng dẫn cài Apps Script</summary>
+        <div class="guide" style="margin-top:8px">
+          <div class="guide-step"><span class="step-num">1</span><span><b>Mở Google Sheet</b> chứa data → Extensions → Apps Script</span></div>
+          <div class="guide-step"><span class="step-num">2</span><span>Dán code Apps Script vào → Save</span></div>
+          <div class="guide-step"><span class="step-num">3</span><span>Deploy → New deployment → <b>Web App</b> · Execute as: Me · Who has access: Anyone</span></div>
+          <div class="guide-step"><span class="step-num">4</span><span>Copy Web App URL → dán vào ô trên → <b>Fetch</b></span></div>
+          <div class="guide-step"><span class="step-num">5</span><span>Map cột → <b>Áp dụng vào báo cáo</b></span></div>
         </div>
       </details>
     </div>
@@ -332,12 +339,15 @@ input[type=file]{display:none}
 
   <!-- Manual panel -->
   <div id="panelManual" style="display:none">
-    <div class="card" style="margin-bottom:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-        <div class="card-title" style="margin:0" id="formTitle">➕ Thêm dòng mới <span id="formPeriodBadge"></span></div>
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="card-title" style="margin:0" id="formTitle">Thêm dòng mới</div>
+          <span id="formPeriodBadge"></span>
+        </div>
       </div>
       <div class="ptype-bar">
-        <label>Kỳ:</label>
+        <label>Loại kỳ:</label>
         <div class="ptype-tabs">
           <div class="ptab active" data-ptype="daily">Ngày</div>
           <div class="ptab" data-ptype="weekly">Tuần</div>
@@ -346,7 +356,7 @@ input[type=file]{display:none}
         </div>
         <div class="period-inputs" id="periodInputs"></div>
       </div>
-      <div class="form-section">Thông tin chung</div>
+      <div class="form-section"><i class="ti ti-info-circle" aria-hidden="true"></i>Thông tin chung</div>
       <div class="form-grid">
         <div class="form-group" style="grid-column:span 2"><label>Client *</label><input type="text" id="fClient" placeholder="HuStar, TTTScale..."></div>
         <div class="form-group" style="grid-column:span 2"><label>Campaign *</label><input type="text" id="fCampaign" placeholder="Tên campaign"></div>
@@ -354,7 +364,7 @@ input[type=file]{display:none}
           <select id="fPlatform"><option value="">-- Chọn --</option><option>Google</option><option>Meta</option><option>Zalo</option><option>TikTok</option><option>LinkedIn</option></select>
         </div>
       </div>
-      <div class="form-section">Actual</div>
+      <div class="form-section"><i class="ti ti-chart-line" aria-hidden="true"></i>Actual</div>
       <div class="form-grid">
         <div class="form-group"><label>Spend ($)</label><input type="number" id="fSpend" min="0" step="0.01" placeholder="0"></div>
         <div class="form-group"><label>Impressions</label><input type="number" id="fImpressions" min="0" placeholder="0"></div>
@@ -362,7 +372,7 @@ input[type=file]{display:none}
         <div class="form-group"><label>Conversions</label><input type="number" id="fConversions" min="0" placeholder="0"></div>
         <div class="form-group"><label>Revenue ($)</label><input type="number" id="fRevenue" min="0" step="0.01" placeholder="0"></div>
       </div>
-      <div class="form-section">Target (tuỳ chọn)</div>
+      <div class="form-section"><i class="ti ti-target" aria-hidden="true"></i>Target <span style="font-size:10px;font-weight:400;color:var(--t3);text-transform:none;letter-spacing:0">(tuỳ chọn)</span></div>
       <div class="form-grid">
         <div class="form-group"><label>T. Spend</label><input type="number" id="fTSpend" min="0" step="0.01" placeholder="0"></div>
         <div class="form-group"><label>T. Impressions</label><input type="number" id="fTImpressions" min="0" placeholder="0"></div>
@@ -371,18 +381,18 @@ input[type=file]{display:none}
         <div class="form-group"><label>T. Revenue</label><input type="number" id="fTRevenue" min="0" step="0.01" placeholder="0"></div>
       </div>
       <div class="form-actions">
-        <button class="btn primary" id="btnSaveRow">➕ <span id="btnSaveLabel">Thêm dòng</span></button>
-        <button class="btn" id="btnCancelEdit" style="display:none">Huỷ</button>
+        <button class="btn primary" id="btnSaveRow"><i class="ti ti-plus" aria-hidden="true"></i> <span id="btnSaveLabel">Thêm dòng</span></button>
+        <button class="btn" id="btnCancelEdit" style="display:none"><i class="ti ti-x" aria-hidden="true"></i> Huỷ</button>
         <span class="err-msg" id="formErr"></span>
       </div>
     </div>
 
-    <div id="manualTableWrap" style="display:none;margin-bottom:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+    <div id="manualTableWrap" style="display:none;margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
         <div style="font-size:14px;font-weight:500">Dữ liệu đã nhập <span class="count-badge" id="rowCount">0</span></div>
         <div style="display:flex;gap:8px">
-          <button class="btn primary" id="btnApply">📊 Xem báo cáo</button>
-          <button class="btn danger sm" id="btnClearAll">🗑️ Xoá tất cả</button>
+          <button class="btn primary" id="btnApply"><i class="ti ti-chart-bar" aria-hidden="true"></i> Xem báo cáo</button>
+          <button class="btn danger sm" id="btnClearAll"><i class="ti ti-trash" aria-hidden="true"></i> Xoá tất cả</button>
         </div>
       </div>
       <div class="table-wrap">
@@ -400,15 +410,15 @@ input[type=file]{display:none}
 
   <!-- Dashboard -->
   <div id="mainContent" style="display:none">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-      <span class="src-badge" id="dataSourceTag">—</span>
-      <span style="font-size:12px;color:var(--text3)" id="lastUpdated"></span>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+      <span class="src-badge" id="dataSourceTag"><i class="ti ti-database" aria-hidden="true"></i> —</span>
+      <span style="font-size:12px;color:var(--t3)" id="lastUpdated"></span>
     </div>
 
     <div class="tabs">
-      <div class="tab active" data-view="overview">Overview</div>
-      <div class="tab" data-view="mom">📅 Period Comparison</div>
-      <div class="tab" data-view="campaigns">Campaigns</div>
+      <div class="tab active" data-view="overview"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> Overview</div>
+      <div class="tab" data-view="mom"><i class="ti ti-arrows-diff" aria-hidden="true"></i> Period Comparison</div>
+      <div class="tab" data-view="campaigns"><i class="ti ti-list-details" aria-hidden="true"></i> Campaigns</div>
     </div>
 
     <!-- Overview -->
@@ -416,23 +426,25 @@ input[type=file]{display:none}
       <div class="kpi-grid" id="kpiGrid"></div>
       <div class="charts-grid">
         <div class="chart-box">
-          <div class="card-title">Spend theo platform</div>
+          <div class="chart-title">Spend theo platform</div>
+          <div class="chart-sub">Phân bổ ngân sách quảng cáo</div>
           <div class="legend" id="legendPlatform"></div>
-          <div class="chart-container"><canvas id="chartPlatform"></canvas></div>
+          <div class="chart-container"><canvas id="chartPlatform" role="img" aria-label="Donut chart spend by platform"></canvas></div>
         </div>
         <div class="chart-box">
-          <div class="card-title">Spend theo kỳ</div>
+          <div class="chart-title">Spend theo kỳ</div>
+          <div class="chart-sub">Actual vs Target</div>
           <div class="legend" id="legendTrend"></div>
-          <div class="chart-container"><canvas id="chartTrend"></canvas></div>
+          <div class="chart-container"><canvas id="chartTrend" role="img" aria-label="Line chart spend over time actual vs target"></canvas></div>
         </div>
       </div>
     </div>
 
     <!-- Period Comparison -->
     <div id="viewMom" style="display:none">
-      <div class="banner">📅 <span id="momBannerText">Chọn kỳ để so sánh</span></div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-        <label style="font-size:12px;color:var(--text2);font-weight:500">So sánh theo:</label>
+      <div class="banner"><i class="ti ti-calendar-stats" aria-hidden="true"></i><span id="momBannerText">Chọn kỳ để so sánh</span></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+        <label style="font-size:12px;color:var(--t2);font-weight:500">So sánh theo:</label>
         <div class="ptype-tabs" id="momPeriodTabs">
           <div class="ptab active" data-mperiod="month">Tháng</div>
           <div class="ptab" data-mperiod="week">Tuần</div>
@@ -441,16 +453,24 @@ input[type=file]{display:none}
         <div id="momPeriodSelectors" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>
       </div>
       <div class="kpi-grid" id="momKpiGrid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))"></div>
-      <div class="charts-grid" style="margin-top:16px">
-        <div class="chart-box"><div class="card-title">Spend theo platform</div><div class="chart-container"><canvas id="chartMomSpend"></canvas></div></div>
-        <div class="chart-box"><div class="card-title">Conversions theo platform</div><div class="chart-container"><canvas id="chartMomConv"></canvas></div></div>
+      <div class="charts-grid" style="margin-top:20px">
+        <div class="chart-box">
+          <div class="chart-title">Spend theo platform</div>
+          <div class="chart-sub">Kỳ này vs kỳ trước</div>
+          <div class="chart-container"><canvas id="chartMomSpend" role="img" aria-label="Bar chart spend by platform period comparison"></canvas></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Conversions theo platform</div>
+          <div class="chart-sub">Kỳ này vs kỳ trước</div>
+          <div class="chart-container"><canvas id="chartMomConv" role="img" aria-label="Bar chart conversions by platform period comparison"></canvas></div>
+        </div>
       </div>
-      <div class="card" style="margin-top:14px">
-        <div class="card-title">So sánh chi tiết — Δ = thay đổi so với kỳ trước</div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-title"><i class="ti ti-table" style="font-size:13px;vertical-align:-2px;margin-right:6px" aria-hidden="true"></i>So sánh chi tiết — Δ = thay đổi so với kỳ trước</div>
         <div class="table-wrap">
           <table class="data-table"><thead><tr>
             <th>Client</th><th>Campaign</th><th>Platform</th>
-            <th>Spend (Hiện)</th><th>Spend (Trước)</th><th>Δ Spend</th>
+            <th>Spend (H)</th><th>Spend (T)</th><th>Δ Spend</th>
             <th>Clicks (H)</th><th>Clicks (T)</th><th>Δ Clicks</th>
             <th>Conv. (H)</th><th>Conv. (T)</th><th>Δ Conv.</th>
             <th>ROAS (H)</th><th>ROAS (T)</th><th>Δ ROAS</th>
@@ -462,9 +482,9 @@ input[type=file]{display:none}
     <!-- Campaigns -->
     <div id="viewCampaigns" style="display:none">
       <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <div class="card-title" style="margin:0">Chi tiết campaign — Actual vs Target</div>
-          <div style="font-size:11px;display:flex;gap:8px;flex-wrap:wrap">
+        <div class="card-header">
+          <div class="card-title" style="margin:0"><i class="ti ti-adjustments-horizontal" style="font-size:13px;vertical-align:-2px;margin-right:6px" aria-hidden="true"></i>Chi tiết campaign — Actual vs Target</div>
+          <div style="font-size:11px;display:flex;gap:6px;align-items:center">
             <span class="pct-pill pct-over">≥100%</span>
             <span class="pct-pill pct-near">80–99%</span>
             <span class="pct-pill pct-low">&lt;80%</span>
@@ -498,9 +518,9 @@ input[type=file]{display:none}
 
   <!-- Empty state -->
   <div class="empty-state" id="emptyState">
-    <div class="icon">📊</div>
-    <p>Upload CSV, kết nối Google Sheet, hoặc nhập thủ công</p>
-    <small>Hỗ trợ: Meta · Google · Zalo · TikTok · LinkedIn</small>
+    <div class="empty-icon"><i class="ti ti-chart-bar" aria-hidden="true"></i></div>
+    <p>Chưa có data để hiển thị</p>
+    <small>Upload CSV, kết nối Google Sheet, hoặc nhập thủ công để bắt đầu</small>
   </div>
 </div>
 </div>
