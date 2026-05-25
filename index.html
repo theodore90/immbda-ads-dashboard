@@ -791,21 +791,230 @@ document.getElementById('btnExcel').addEventListener('click',()=>{
 
 document.getElementById('btnPDF').addEventListener('click',()=>{
   if(!lastRows.length){showToast('Chưa có data','err');return;}
-  const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  const tot=lastTotals;const W=297,M=14;let y=M;
-  doc.setFillColor(15,15,14);doc.rect(0,0,W,20,'F');doc.setTextColor(211,209,199);doc.setFontSize(14);doc.setFont('helvetica','bold');doc.text('IMM BDA — Digital Ads Report',M,13);doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text(`${new Date().toLocaleString('vi-VN')}  ·  ${currentSource}`,M,18);y=28;
-  const kpis=[['Spend',fU(tot.spend),tot.tspend,tot.spend],['Clicks',fmt(tot.clicks),tot.tclicks,tot.clicks],['Conv.',fmt(tot.conversions),tot.tconversions,tot.conversions],['Revenue',fU(tot.revenue),tot.trevenue,tot.revenue],['CTR',fP(tot.ctr),0,0],['CPC',fU(tot.cpc),0,0],['CPL',fU(tot.conversions?tot.spend/tot.conversions:0),0,0],['ROAS',tot.roas.toFixed(2)+'x',0,0]];
-  const bw=(W-2*M)/kpis.length-2;kpis.forEach((k,i)=>{const x=M+i*(bw+2);doc.setFillColor(26,26,24);doc.roundedRect(x,y,bw,22,2,2,'F');doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(107,105,99);doc.text(k[0].toUpperCase(),x+4,y+6);doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(211,209,199);doc.text(k[1],x+4,y+14);if(k[2]>0){const pc=Math.round(k[3]/k[2]*100);const col=pc>=100?[29,158,117]:pc>=80?[186,117,23]:[216,90,48];doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(...col);doc.text(`Target: ${fU(k[2])}  ${pc}%`,x+4,y+20);}});y+=30;
-  doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(211,209,199);doc.text('Campaign Detail — Actual vs Target',M,y);y+=5;
+  showToast('Đang tạo PDF...','');
+
+  // Capture charts as images first (must be visible)
+  function chartImg(id){
+    try{
+      const canvas=document.getElementById(id);
+      if(!canvas)return null;
+      return canvas.toDataURL('image/png',1.0);
+    }catch(e){return null;}
+  }
+
+  // Ensure overview charts are rendered
+  const imgPlat=chartImg('chartPlatform');
+  const imgTrend=chartImg('chartTrend');
+  const imgMomSpend=chartImg('chartMomSpend');
+  const imgMomConv=chartImg('chartMomConv');
+
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  const tot=lastTotals;
+  const W=297,M=14,PW=W-2*M;
+  let y=M;
+
+  // ── Helper: page footer ──
+  function addFooter(){
+    const p=doc.getNumberOfPages();
+    for(let i=1;i<=p;i++){
+      doc.setPage(i);
+      doc.setFillColor(26,26,24);doc.rect(0,200,W,10,'F');
+      doc.setFontSize(7);doc.setTextColor(107,105,99);
+      doc.text(`IMM BDA Digital Ads Dashboard  ·  Page ${i} of ${p}`,M,206);
+      doc.text(new Date().toLocaleString('vi-VN'),W-M,206,{align:'right'});
+    }
+  }
+
+  // ── Helper: section heading ──
+  function sectionTitle(title,yPos){
+    doc.setFillColor(36,36,33);doc.rect(M,yPos,PW,7,'F');
+    doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(168,166,156);
+    doc.text(title.toUpperCase(),M+3,yPos+5);
+    return yPos+10;
+  }
+
+  // ══════════════════════════════════════════
+  // PAGE 1 — Header + KPIs + Charts
+  // ══════════════════════════════════════════
+  // Header bar
+  doc.setFillColor(15,15,14);doc.rect(0,0,W,22,'F');
+  doc.setTextColor(211,209,199);doc.setFontSize(15);doc.setFont('helvetica','bold');
+  doc.text('IMM BDA — Digital Ads Report',M,14);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(107,105,99);
+  doc.text(`${new Date().toLocaleString('vi-VN')}  ·  Nguồn: ${currentSource}`,M,20);
+  y=28;
+
+  // KPI boxes (2 rows × 4)
+  const kpis=[
+    ['Total Spend',fU(tot.spend),tot.tspend,tot.spend],
+    ['Clicks',fmt(tot.clicks),tot.tclicks,tot.clicks],
+    ['Conversions',fmt(tot.conversions),tot.tconversions,tot.conversions],
+    ['Revenue',fU(tot.revenue),tot.trevenue,tot.revenue],
+    ['CTR',fP(tot.ctr),0,0],
+    ['CPC',fU(tot.cpc),0,0],
+    ['CPL',fU(tot.conversions?tot.spend/tot.conversions:0),0,0],
+    ['ROAS',tot.roas.toFixed(2)+'x',0,0],
+  ];
+  const cols4=4,bw=(PW-cols4*2)/cols4;
+  kpis.forEach((k,i)=>{
+    const row=Math.floor(i/cols4),col=i%cols4;
+    const x=M+col*(bw+2),ky=y+row*26;
+    doc.setFillColor(26,26,24);doc.roundedRect(x,ky,bw,23,2,2,'F');
+    doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(107,105,99);
+    doc.text(k[0].toUpperCase(),x+4,ky+6);
+    doc.setFontSize(12);doc.setFont('helvetica','bold');doc.setTextColor(211,209,199);
+    doc.text(k[1],x+4,ky+15);
+    if(k[2]>0){
+      const pc=Math.round(k[3]/k[2]*100);
+      const col2=pc>=100?[29,158,117]:pc>=80?[186,117,23]:[216,90,48];
+      doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(...col2);
+      doc.text(`vs Target ${fU(k[2])}  →  ${pc}%`,x+4,ky+21);
+    }
+  });
+  y+=56;
+
+  // Charts row — Spend by Platform + Trend
+  y=sectionTitle('Biểu đồ tổng quan',y);
+  const chartH=62,chartW=(PW-6)/2;
+  if(imgPlat){
+    doc.setFillColor(26,26,24);doc.roundedRect(M,y,chartW,chartH,2,2,'F');
+    doc.setFontSize(7);doc.setTextColor(107,105,99);doc.text('SPEND THEO PLATFORM',M+4,y+5);
+    doc.addImage(imgPlat,'PNG',M+4,y+7,chartW-8,chartH-10);
+  }
+  if(imgTrend){
+    const x2=M+chartW+6;
+    doc.setFillColor(26,26,24);doc.roundedRect(x2,y,chartW,chartH,2,2,'F');
+    doc.setFontSize(7);doc.setTextColor(107,105,99);doc.text('SPEND THEO KỲ — ACTUAL VS TARGET',x2+4,y+5);
+    doc.addImage(imgTrend,'PNG',x2+4,y+7,chartW-8,chartH-10);
+  }
+  y+=chartH+6;
+
+  // ══════════════════════════════════════════
+  // PAGE 2 — Period Comparison charts + table
+  // ══════════════════════════════════════════
+  if(imgMomSpend||imgMomConv){
+    doc.addPage();y=M;
+    // Header strip
+    doc.setFillColor(15,15,14);doc.rect(0,0,W,14,'F');
+    doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(211,209,199);
+    doc.text('Period Comparison',M,10);
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(107,105,99);
+    const bannerEl=document.getElementById('momBannerText');
+    if(bannerEl)doc.text(bannerEl.innerText||'',M+60,10);
+    y=20;
+
+    // MoM KPI pills
+    if(lastMomRows.length){
+      // aggregate cur vs prev from lastMomRows
+      const sumCur={spend:0,clicks:0,conv:0};const sumPrev={spend:0,clicks:0,conv:0};
+      lastMomRows.forEach(r=>{sumCur.spend+=r.curSpend;sumCur.clicks+=r.curClicks;sumCur.conv+=r.curConv;sumPrev.spend+=r.prevSpend;sumPrev.clicks+=r.prevClicks;sumPrev.conv+=r.prevConv;});
+      const momKpis=[
+        ['Spend',fU(sumCur.spend),fU(sumPrev.spend),sumCur.spend-sumPrev.spend,sumPrev.spend],
+        ['Clicks',fmt(sumCur.clicks),fmt(sumPrev.clicks),sumCur.clicks-sumPrev.clicks,sumPrev.clicks],
+        ['Conversions',fmt(sumCur.conv),fmt(sumPrev.conv),sumCur.conv-sumPrev.conv,sumPrev.conv],
+      ];
+      const mkw=(PW-4)/3;
+      momKpis.forEach((k,i)=>{
+        const x=M+i*(mkw+2);
+        doc.setFillColor(26,26,24);doc.roundedRect(x,y,mkw,20,2,2,'F');
+        doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(107,105,99);doc.text(k[0].toUpperCase(),x+4,y+5);
+        doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(211,209,199);doc.text(k[1],x+4,y+13);
+        const pct=k[4]?Math.round(k[3]/k[4]*100):0;
+        const col=k[3]>0?[29,158,117]:k[3]<0?[216,90,48]:[107,105,99];
+        doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(...col);
+        doc.text(`${k[3]>=0?'+':''}${k[3]>1000?fU(k[3]):fmt(k[3])} (${pct>=0?'+':''}${pct}%)  vs ${k[2]}`,x+mkw/2+2,y+13,{align:'center'});
+      });
+      y+=24;
+    }
+
+    y=sectionTitle('So sánh theo platform',y);
+    const ch2=58,cw2=(PW-6)/2;
+    if(imgMomSpend){
+      doc.setFillColor(26,26,24);doc.roundedRect(M,y,cw2,ch2,2,2,'F');
+      doc.setFontSize(7);doc.setTextColor(107,105,99);doc.text('SPEND THEO PLATFORM',M+4,y+5);
+      doc.addImage(imgMomSpend,'PNG',M+4,y+7,cw2-8,ch2-10);
+    }
+    if(imgMomConv){
+      const x2=M+cw2+6;
+      doc.setFillColor(26,26,24);doc.roundedRect(x2,y,cw2,ch2,2,2,'F');
+      doc.setFontSize(7);doc.setTextColor(107,105,99);doc.text('CONVERSIONS THEO PLATFORM',x2+4,y+5);
+      doc.addImage(imgMomConv,'PNG',x2+4,y+7,cw2-8,ch2-10);
+    }
+    y+=ch2+6;
+
+    // MoM table (compact)
+    if(lastMomRows.length){
+      y=sectionTitle('Chi tiết campaign — Period Comparison',y);
+      const mCols=['Client','Campaign','Platform','Spend(H)','Spend(T)','Δ Spend','Clicks(H)','Clicks(T)','Δ Clicks','Conv(H)','Conv(T)','Δ Conv'];
+      const mCws=[24,32,18,18,18,18,14,14,14,12,12,14];
+      const mrh=6.5;
+      doc.setFillColor(36,36,33);doc.rect(M,y,PW,mrh,'F');
+      doc.setFontSize(6);doc.setFont('helvetica','bold');doc.setTextColor(168,166,156);
+      let cx=M+1;mCols.forEach((c,i)=>{doc.text(c,cx,y+4.5);cx+=mCws[i];});y+=mrh;
+      lastMomRows.forEach((r,ri)=>{
+        if(y>195){doc.addPage();y=14;}
+        doc.setFillColor(ri%2===0?15:26,ri%2===0?15:26,ri%2===0?14:24);
+        doc.rect(M,y,PW,mrh,'F');
+        doc.setFontSize(6);doc.setFont('helvetica','normal');
+        const dSpend=r.dSpend,dClicks=r.dClicks,dConv=r.dConv;
+        const mVals=[r.client,r.campaign,r.platform,fU(r.curSpend),fU(r.prevSpend),fU(Math.abs(dSpend)),fmt(r.curClicks),fmt(r.prevClicks),fmt(Math.abs(dClicks)),fmt(r.curConv),fmt(r.prevConv),fmt(Math.abs(dConv))];
+        cx=M+1;
+        mVals.forEach((v,i)=>{
+          if([5,8,11].includes(i)){
+            const rawD=i===5?dSpend:i===8?dClicks:dConv;
+            doc.setTextColor(...(rawD>0?[29,158,117]:rawD<0?[216,90,48]:[107,105,99]));
+            doc.text((rawD>=0?'+':'-')+v,cx,y+4.5);
+            doc.setTextColor(211,209,199);
+          }else{
+            doc.setTextColor(211,209,199);
+            doc.text(String(v||'-').slice(0,Math.floor(mCws[i]/1.6)),cx,y+4.5);
+          }
+          cx+=mCws[i];
+        });
+        y+=mrh;
+      });
+    }
+  }
+
+  // ══════════════════════════════════════════
+  // PAGE 3 — Campaign Detail (Actual vs Target)
+  // ══════════════════════════════════════════
+  doc.addPage();y=M;
+  doc.setFillColor(15,15,14);doc.rect(0,0,W,14,'F');
+  doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(211,209,199);
+  doc.text('Campaign Detail — Actual vs Target',M,10);y=18;
+
   const cols=['Client','Campaign','Plat','Spend','T.Sp','%','Clicks','T.Clk','%','Conv','T.Cv','%','Rev','T.Rv','%','CTR','CPC','ROAS'];
-  const cws=[22,30,16,15,13,10,11,11,10,10,10,10,13,13,10,10,11,12];const rh=7;
-  doc.setFillColor(36,36,33);doc.rect(M,y,W-2*M,rh,'F');doc.setTextColor(168,166,156);doc.setFontSize(6.5);doc.setFont('helvetica','bold');
-  let cx=M+1;cols.forEach((c,i)=>{doc.text(c,cx,y+5);cx+=cws[i];});y+=rh;
-  lastRows.forEach((r,ri)=>{if(y>190){doc.addPage();y=14;}doc.setFillColor(ri%2===0?15:26,ri%2===0?15:26,ri%2===0?14:24);doc.rect(M,y,W-2*M,rh,'F');doc.setTextColor(211,209,199);doc.setFontSize(6.5);doc.setFont('helvetica','normal');
-  const vals=[r.client,r.campaign,r.platform,fU(r.spend),r.tspend?fU(r.tspend):'—',r.tspend?Math.round(r.pspend)+'%':'—',fmt(r.clicks),r.tclicks?fmt(r.tclicks):'—',r.tclicks?Math.round(r.pclicks)+'%':'—',fmt(r.conversions),r.tconversions?fmt(r.tconversions):'—',r.tconversions?Math.round(r.pconversions)+'%':'—',fU(r.revenue),r.trevenue?fU(r.trevenue):'—',r.trevenue?Math.round(r.prevenue)+'%':'—',fP(r.ctr),fU(r.cpc),r.roas.toFixed(2)+'x'];
-  cx=M+1;vals.forEach((v,i)=>{if([5,8,11,14].includes(i)&&v!=='—'){const pct=parseInt(v);const col=pct>=100?[29,158,117]:pct>=80?[186,117,23]:[216,90,48];doc.setTextColor(...col);doc.text(v,cx,y+5);doc.setTextColor(211,209,199);}else{doc.text(String(v||'-').slice(0,Math.floor(cws[i]/1.8)),cx,y+5);}cx+=cws[i];});y+=rh;});
-  const pages=doc.getNumberOfPages();for(let i=1;i<=pages;i++){doc.setPage(i);doc.setFontSize(7);doc.setTextColor(107,105,99);doc.text(`IMM BDA Digital Ads Dashboard  ·  Page ${i} of ${pages}`,M,205);doc.text(new Date().toLocaleString('vi-VN'),W-M,205,{align:'right'});}
-  doc.save(`IMM_BDA_Ads_${new Date().toISOString().slice(0,10)}.pdf`);showToast('PDF exported!','ok');
+  const cws=[22,30,16,15,13,10,11,11,10,10,10,10,13,13,10,10,11,12];
+  const rh=6.5;
+  doc.setFillColor(36,36,33);doc.rect(M,y,PW,rh,'F');
+  doc.setTextColor(168,166,156);doc.setFontSize(6.5);doc.setFont('helvetica','bold');
+  let cx=M+1;cols.forEach((c,i)=>{doc.text(c,cx,y+4.5);cx+=cws[i];});y+=rh;
+
+  lastRows.forEach((r,ri)=>{
+    if(y>195){doc.addPage();y=14;}
+    doc.setFillColor(ri%2===0?15:26,ri%2===0?15:26,ri%2===0?14:24);
+    doc.rect(M,y,PW,rh,'F');
+    doc.setTextColor(211,209,199);doc.setFontSize(6.5);doc.setFont('helvetica','normal');
+    const vals=[r.client,r.campaign,r.platform,fU(r.spend),r.tspend?fU(r.tspend):'—',r.tspend?Math.round(r.pspend)+'%':'—',fmt(r.clicks),r.tclicks?fmt(r.tclicks):'—',r.tclicks?Math.round(r.pclicks)+'%':'—',fmt(r.conversions),r.tconversions?fmt(r.tconversions):'—',r.tconversions?Math.round(r.pconversions)+'%':'—',fU(r.revenue),r.trevenue?fU(r.trevenue):'—',r.trevenue?Math.round(r.prevenue)+'%':'—',fP(r.ctr),fU(r.cpc),r.roas.toFixed(2)+'x'];
+    cx=M+1;
+    vals.forEach((v,i)=>{
+      if([5,8,11,14].includes(i)&&v!=='—'){
+        const pct=parseInt(v);
+        doc.setTextColor(...(pct>=100?[29,158,117]:pct>=80?[186,117,23]:[216,90,48]));
+        doc.text(v,cx,y+4.5);doc.setTextColor(211,209,199);
+      }else{
+        doc.text(String(v||'-').slice(0,Math.floor(cws[i]/1.8)),cx,y+4.5);
+      }
+      cx+=cws[i];
+    });
+    y+=rh;
+  });
+
+  addFooter();
+  doc.save(`IMM_BDA_Ads_${new Date().toISOString().slice(0,10)}.pdf`);
+  showToast('PDF exported! (3 trang)','ok');
 });
 </script>
 </body>
