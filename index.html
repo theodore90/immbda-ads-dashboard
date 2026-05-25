@@ -409,6 +409,7 @@ input[type=file]{display:none}
       <div class="tab active" data-view="overview">Overview</div>
       <div class="tab" data-view="mom">📅 Period Comparison</div>
       <div class="tab" data-view="campaigns">Campaigns</div>
+      <div class="tab" data-view="insights">🤖 AI Insights</div>
     </div>
 
     <!-- Overview -->
@@ -495,6 +496,57 @@ input[type=file]{display:none}
       </div>
     </div>
   </div>
+
+    <!-- AI Insights -->
+    <div id="viewInsights" style="display:none">
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+          <div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:2px">🤖 AI Insights</div>
+            <div style="font-size:12px;color:var(--text2)">Phân tích tự động — tối ưu tài khoản, ngân sách, xu hướng</div>
+          </div>
+          <button class="btn primary" id="btnGenInsights">✨ Tạo Insights</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <label style="font-size:12px;color:var(--text2);font-weight:500;align-self:center">Tập trung vào:</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="chkBudget" checked> Ngân sách</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="chkPerf" checked> Hiệu suất</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="chkTrend" checked> Xu hướng</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="chkOpt" checked> Tối ưu hoá</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="chkAlert" checked> Cảnh báo</label>
+        </div>
+        <div id="insightPromptRow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="text" id="insightQuestion" placeholder="Hỏi thêm về data... VD: Campaign nào nên tăng budget?" style="flex:1;min-width:200px">
+          <button class="btn sm" id="btnAskInsight" disabled>Hỏi</button>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div id="insightLoading" style="display:none;text-align:center;padding:40px">
+        <div style="font-size:32px;margin-bottom:12px;animation:spin 1s linear infinite;display:inline-block">⚙️</div>
+        <div style="font-size:14px;color:var(--text2)" id="insightLoadingText">Đang phân tích data...</div>
+      </div>
+
+      <!-- Insights output -->
+      <div id="insightOutput" style="display:none">
+        <div id="insightCards"></div>
+        <div class="card" style="margin-top:14px;display:none" id="insightQACard">
+          <div style="font-size:13px;font-weight:500;margin-bottom:10px;color:var(--text2)">💬 Q&A</div>
+          <div id="insightQAList"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          <button class="btn sm ghost" id="btnCopyInsights">📋 Copy tất cả</button>
+          <button class="btn sm ghost" id="btnExportInsightPDF">📄 Export PDF</button>
+        </div>
+      </div>
+
+      <!-- Empty -->
+      <div id="insightEmpty" style="text-align:center;padding:50px 20px;color:var(--text3)">
+        <div style="font-size:40px;margin-bottom:12px">🤖</div>
+        <p style="color:var(--text2);margin-bottom:6px">Nhấn "Tạo Insights" để AI phân tích data của bạn</p>
+        <small>Dashboard sẽ gửi toàn bộ số liệu cho AI và trả về phân tích chi tiết</small>
+      </div>
+    </div>
 
   <!-- Empty state -->
   <div class="empty-state" id="emptyState">
@@ -772,7 +824,242 @@ document.querySelectorAll('#mainTable th[data-col]').forEach(th=>{th.addEventLis
 function render(){const d=getFiltered();if(!d.length)return;renderKPIs(d);renderOverviewCharts(d);renderMoM(rawData,momPT);renderCampTable(d);}
 
 // View tabs
-document.querySelectorAll('.tab[data-view]').forEach(tab=>{tab.addEventListener('click',()=>{document.querySelectorAll('.tab[data-view]').forEach(t=>t.classList.remove('active'));tab.classList.add('active');currentView=tab.dataset.view;document.getElementById('viewOverview').style.display=currentView==='overview'?'block':'none';document.getElementById('viewMom').style.display=currentView==='mom'?'block':'none';document.getElementById('viewCampaigns').style.display=currentView==='campaigns'?'block':'none';});});
+document.querySelectorAll('.tab[data-view]').forEach(tab=>{tab.addEventListener('click',()=>{document.querySelectorAll('.tab[data-view]').forEach(t=>t.classList.remove('active'));tab.classList.add('active');currentView=tab.dataset.view;document.getElementById('viewOverview').style.display=currentView==='overview'?'block':'none';document.getElementById('viewMom').style.display=currentView==='mom'?'block':'none';document.getElementById('viewCampaigns').style.display=currentView==='campaigns'?'block':'none';document.getElementById('viewInsights').style.display=currentView==='insights'?'block':'none';});});
+
+// ============================================================
+// AI INSIGHTS
+// ============================================================
+let insightHistory=[];
+
+function buildDataSummary(){
+  const d=getFiltered();if(!d.length)return null;
+  const tot=aggTot(d);
+  // By platform
+  const byPlat={};d.forEach(r=>{const k=r.platform||'?';if(!byPlat[k])byPlat[k]={spend:0,clicks:0,conv:0,rev:0,impr:0};byPlat[k].spend+=n(r.spend);byPlat[k].clicks+=n(r.clicks);byPlat[k].conv+=n(r.conversions);byPlat[k].rev+=n(r.revenue);byPlat[k].impr+=n(r.impressions);});
+  // By campaign
+  const byCamp={};d.forEach(r=>{const k=`${r.client}|${r.campaign}|${r.platform}`;if(!byCamp[k])byCamp[k]={client:r.client,campaign:r.campaign,platform:r.platform,spend:0,clicks:0,conv:0,rev:0,tspend:0,tconv:0,trev:0};byCamp[k].spend+=n(r.spend);byCamp[k].clicks+=n(r.clicks);byCamp[k].conv+=n(r.conversions);byCamp[k].rev+=n(r.revenue);byCamp[k].tspend+=n(r.target_spend);byCamp[k].tconv+=n(r.target_conversions);byCamp[k].trev+=n(r.target_revenue);});
+  // By period
+  const byPeriod={};d.forEach(r=>{const k=r.period_key||r.date||'?';if(!byPeriod[k])byPeriod[k]={spend:0,conv:0,rev:0};byPeriod[k].spend+=n(r.spend);byPeriod[k].conv+=n(r.conversions);byPeriod[k].rev+=n(r.revenue);});
+  const periods=Object.entries(byPeriod).sort((a,b)=>a[0].localeCompare(b[0]));
+  // By client
+  const byClient={};d.forEach(r=>{const k=r.client||'?';if(!byClient[k])byClient[k]={spend:0,conv:0,rev:0,tspend:0};byClient[k].spend+=n(r.spend);byClient[k].conv+=n(r.conversions);byClient[k].rev+=n(r.revenue);byClient[k].tspend+=n(r.target_spend);});
+
+  const camps=Object.values(byCamp).sort((a,b)=>b.spend-a.spend);
+  const platList=Object.entries(byPlat).map(([p,v])=>({platform:p,...v,ctr:v.impr?v.clicks/v.impr*100:0,cpc:v.clicks?v.spend/v.clicks:0,roas:v.spend?v.rev/v.spend:0,cpl:v.conv?v.spend/v.conv:0})).sort((a,b)=>b.spend-a.spend);
+
+  return{
+    meta:{totalRows:d.length,clients:[...new Set(d.map(r=>r.client).filter(Boolean))],platforms:[...new Set(d.map(r=>r.platform).filter(Boolean))],periods:periods.length,dateRange:periods.length?`${periods[0][0]} → ${periods[periods.length-1][0]}`:'N/A'},
+    totals:{spend:Math.round(tot.spend),clicks:Math.round(tot.clicks),impressions:Math.round(tot.impressions),conversions:Math.round(tot.conversions),revenue:Math.round(tot.revenue),targetSpend:Math.round(tot.tspend),targetConversions:Math.round(tot.tconversions),targetRevenue:Math.round(tot.trevenue),ctr:+tot.ctr.toFixed(2),cpc:+tot.cpc.toFixed(2),cpl:+(tot.conversions?tot.spend/tot.conversions:0).toFixed(2),roas:+tot.roas.toFixed(2),spendVsTarget:tot.tspend?Math.round(tot.spend/tot.tspend*100):null,convVsTarget:tot.tconversions?Math.round(tot.conversions/tot.tconversions*100):null},
+    byPlatform:platList.map(p=>({platform:p.platform,spend:Math.round(p.spend),clicks:Math.round(p.clicks),conversions:Math.round(p.conv),revenue:Math.round(p.rev),ctr:+p.ctr.toFixed(2),cpc:+p.cpc.toFixed(2),roas:+p.roas.toFixed(2),cpl:+p.cpl.toFixed(2),spendShare:Math.round(p.spend/tot.spend*100)})),
+    byCampaign:camps.slice(0,20).map(c=>({client:c.client,campaign:c.campaign,platform:c.platform,spend:Math.round(c.spend),clicks:Math.round(c.clicks),conversions:Math.round(c.conv),revenue:Math.round(c.rev),roas:+(c.spend?c.rev/c.spend:0).toFixed(2),cpl:+(c.conv?c.spend/c.conv:0).toFixed(2),targetSpend:Math.round(c.tspend),targetConversions:Math.round(c.tconv),spendVsTarget:c.tspend?Math.round(c.spend/c.tspend*100):null,convVsTarget:c.tconv?Math.round(c.conv/c.tconv*100):null})),
+    byClient:Object.entries(byClient).map(([cl,v])=>({client:cl,spend:Math.round(v.spend),conversions:Math.round(v.conv),revenue:Math.round(v.rev),roas:+(v.spend?v.rev/v.spend:0).toFixed(2),spendVsTarget:v.tspend?Math.round(v.spend/v.tspend*100):null})),
+    trend:periods.slice(-12).map(([k,v])=>({period:k,spend:Math.round(v.spend),conversions:Math.round(v.conv),revenue:Math.round(v.rev)}))
+  };
+}
+
+function buildInsightPrompt(summary,focuses,question){
+  const focusMap={budget:'ngân sách và chi phí',perf:'hiệu suất và KPI',trend:'xu hướng theo thời gian',opt:'đề xuất tối ưu hoá',alert:'cảnh báo và rủi ro'};
+  const focusText=focuses.map(f=>focusMap[f]).join(', ');
+  const hasTarget=summary.totals.spendVsTarget!==null;
+
+  let prompt=`Bạn là chuyên gia phân tích Digital Marketing cho agency IMM BDA (Việt Nam). Hãy phân tích data ads sau và đưa ra insights chi tiết, thực tế, actionable bằng tiếng Việt.
+
+## DATA TỔNG QUAN
+- Khoảng thời gian: ${summary.meta.dateRange}
+- Clients: ${summary.meta.clients.join(', ')}
+- Platforms: ${summary.meta.platforms.join(', ')}
+- Tổng Spend: ${summary.totals.spend.toLocaleString()}
+- Tổng Clicks: ${summary.totals.clicks.toLocaleString()} | CTR: ${summary.totals.ctr}%
+- Tổng Conversions: ${summary.totals.conversions} | CPL: ${summary.totals.cpl}
+- Tổng Revenue: ${summary.totals.revenue.toLocaleString()} | ROAS: ${summary.totals.roas}x
+${hasTarget?`- Spend vs Target: ${summary.totals.spendVsTarget}% | Conv vs Target: ${summary.totals.convVsTarget||'N/A'}%`:''}
+
+## HIỆU SUẤT THEO PLATFORM
+${summary.byPlatform.map(p=>`- ${p.platform}: Spend ${p.spend} (${p.spendShare}% tổng) | CTR ${p.ctr}% | CPC ${p.cpc} | CPL ${p.cpl} | ROAS ${p.roas}x | ${p.conversions} conversions`).join('\n')}
+
+## HIỆU SUẤT THEO CAMPAIGN (top ${Math.min(summary.byCampaign.length,20)})
+${summary.byCampaign.map(c=>`- [${c.client}] ${c.campaign} (${c.platform}): Spend ${c.spend}${c.spendVsTarget?` (${c.spendVsTarget}% target)`:''} | ${c.conversions} conv${c.convVsTarget?` (${c.convVsTarget}% target)`:''} | ROAS ${c.roas}x | CPL ${c.cpl}`).join('\n')}
+
+## THEO CLIENT
+${summary.byClient.map(c=>`- ${c.client}: Spend ${c.spend}${c.spendVsTarget?` (${c.spendVsTarget}% target)`:''} | ${c.conversions} conv | ROAS ${c.roas}x`).join('\n')}
+
+## XU HƯỚNG (${summary.trend.length} kỳ gần nhất)
+${summary.trend.map(t=>`- ${t.period}: Spend ${t.spend} | ${t.conversions} conv | Revenue ${t.revenue}`).join('\n')}
+
+---
+FOCUSES: ${focusText}
+
+Hãy trả về JSON theo format sau (chỉ JSON, không markdown, không giải thích):
+{
+  "summary": "1-2 câu tóm tắt tình trạng tổng thể",
+  "score": <số từ 1-10 đánh giá hiệu suất tổng thể>,
+  "insights": [
+    {
+      "category": "<Budget|Performance|Trend|Optimization|Alert>",
+      "title": "<tiêu đề ngắn gọn>",
+      "finding": "<phát hiện cụ thể, có số liệu>",
+      "action": "<đề xuất hành động cụ thể>",
+      "priority": "<High|Medium|Low>",
+      "impact": "<ước tính tác động nếu thực hiện>"
+    }
+  ],
+  "topWinners": ["<campaign/platform đang làm tốt nhất>"],
+  "topIssues": ["<vấn đề cần xử lý ngay>"],
+  "budgetRecommendation": "<đề xuất phân bổ ngân sách>",
+  "nextSteps": ["<bước hành động ưu tiên 1>", "<bước 2>", "<bước 3>"]
+}`;
+
+  if(question){prompt+=`\n\nNgoài ra, hãy trả lời câu hỏi sau trong field "answer": "${question}"`;}
+  return prompt;
+}
+
+async function generateInsights(){
+  const summary=buildDataSummary();
+  if(!summary){showToast('Cần có data trước khi tạo insights','err');return;}
+  const focuses=[];
+  if(document.getElementById('chkBudget').checked)focuses.push('budget');
+  if(document.getElementById('chkPerf').checked)focuses.push('perf');
+  if(document.getElementById('chkTrend').checked)focuses.push('trend');
+  if(document.getElementById('chkOpt').checked)focuses.push('opt');
+  if(document.getElementById('chkAlert').checked)focuses.push('alert');
+  if(!focuses.length){showToast('Chọn ít nhất 1 focus','err');return;}
+
+  document.getElementById('insightEmpty').style.display='none';
+  document.getElementById('insightOutput').style.display='none';
+  document.getElementById('insightLoading').style.display='block';
+  document.getElementById('btnGenInsights').disabled=true;
+
+  const loadingMsgs=['Đang đọc data...','Phân tích hiệu suất platform...','Tìm xu hướng theo kỳ...','Đánh giá vs target...','Tổng hợp insights...'];
+  let msgIdx=0;const msgTimer=setInterval(()=>{document.getElementById('insightLoadingText').textContent=loadingMsgs[Math.min(msgIdx++,loadingMsgs.length-1)];},1200);
+
+  try{
+    const prompt=buildInsightPrompt(summary,focuses,null);
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,messages:[{role:'user',content:prompt}]})});
+    const data=await res.json();
+    clearInterval(msgTimer);
+    const text=data.content?.find(b=>b.type==='text')?.text||'';
+    let parsed;
+    try{const clean=text.replace(/```json|```/g,'').trim();parsed=JSON.parse(clean);}
+    catch(e){throw new Error('Không parse được response');}
+    insightHistory=[{type:'main',data:parsed,summary}];
+    renderInsights(parsed,summary);
+    document.getElementById('insightOutput').style.display='block';
+    document.getElementById('insightLoading').style.display='none';
+    document.getElementById('btnAskInsight').disabled=false;
+    showToast('✅ Insights đã sẵn sàng','ok');
+  }catch(e){
+    clearInterval(msgTimer);
+    document.getElementById('insightLoading').style.display='none';
+    document.getElementById('insightEmpty').style.display='block';
+    showToast('Lỗi: '+e.message,'err',5000);
+  }finally{document.getElementById('btnGenInsights').disabled=false;}
+}
+
+function scoreColor(s){return s>=8?'var(--green)':s>=5?'var(--yellow)':'var(--red)';}
+function priorityColor(p){return p==='High'?'var(--red)':p==='Medium'?'var(--yellow)':'var(--green)';}
+function catIcon(c){const m={Budget:'💰',Performance:'📈',Trend:'📅',Optimization:'⚡',Alert:'🚨'};return m[c]||'💡';}
+
+function renderInsights(data,summary){
+  const score=data.score||0;
+  const html=`
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+    <div class="card" style="text-align:center;padding:20px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Điểm hiệu suất</div>
+      <div style="font-size:48px;font-weight:700;color:${scoreColor(score)};line-height:1">${score}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px">/10</div>
+    </div>
+    <div class="card" style="grid-column:span 2">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Tóm tắt</div>
+      <div style="font-size:14px;line-height:1.7;color:var(--text)">${data.summary||'—'}</div>
+      ${data.budgetRecommendation?`<div style="margin-top:10px;padding:8px 12px;background:rgba(55,138,221,.08);border-radius:6px;font-size:12px;color:var(--text2)">💰 ${data.budgetRecommendation}</div>`:''}
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+    ${data.topWinners?.length?`<div class="card"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🏆 Đang làm tốt</div>${data.topWinners.map(w=>`<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;font-size:13px"><span style="color:var(--green);flex-shrink:0">✓</span><span>${w}</span></div>`).join('')}</div>`:''}
+    ${data.topIssues?.length?`<div class="card"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">⚠️ Cần xử lý</div>${data.topIssues.map(i=>`<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;font-size:13px"><span style="color:var(--red);flex-shrink:0">!</span><span>${i}</span></div>`).join('')}</div>`:''}
+  </div>
+
+  <div style="margin-bottom:14px">
+    <div style="font-size:13px;font-weight:500;margin-bottom:10px;color:var(--text2)">📋 Chi tiết insights (${data.insights?.length||0})</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${(data.insights||[]).map((ins,i)=>`
+      <div class="card" style="border-left:3px solid ${priorityColor(ins.priority)}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:18px">${catIcon(ins.category)}</span>
+            <span style="font-size:14px;font-weight:500">${ins.title}</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.05);color:var(--text2)">${ins.category}</span>
+            <span style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;color:${priorityColor(ins.priority)};background:${ins.priority==='High'?'rgba(216,90,48,.12)':ins.priority==='Medium'?'rgba(186,117,23,.12)':'rgba(29,158,117,.12)'}">${ins.priority}</span>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--text);margin-bottom:8px;line-height:1.6">${ins.finding}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div style="flex:1;min-width:180px;background:rgba(55,138,221,.06);border-radius:6px;padding:8px 10px">
+            <div style="font-size:10px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Đề xuất</div>
+            <div style="font-size:12px;color:var(--text2)">${ins.action}</div>
+          </div>
+          ${ins.impact?`<div style="flex:1;min-width:150px;background:rgba(29,158,117,.06);border-radius:6px;padding:8px 10px"><div style="font-size:10px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Tác động dự kiến</div><div style="font-size:12px;color:var(--text2)">${ins.impact}</div></div>`:''}
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  ${data.nextSteps?.length?`<div class="card">
+    <div style="font-size:13px;font-weight:500;margin-bottom:10px;color:var(--text2)">🚀 Next Steps ưu tiên</div>
+    ${data.nextSteps.map((s,i)=>`<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px"><div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div><div style="font-size:13px;color:var(--text);line-height:1.5;padding-top:2px">${s}</div></div>`).join('')}
+  </div>`:''}`;
+  document.getElementById('insightCards').innerHTML=html;
+}
+
+document.getElementById('btnGenInsights').addEventListener('click',generateInsights);
+
+document.getElementById('btnAskInsight').addEventListener('click',async()=>{
+  const q=document.getElementById('insightQuestion').value.trim();if(!q)return;
+  const summary=buildDataSummary();if(!summary)return;
+  document.getElementById('btnAskInsight').disabled=true;
+  document.getElementById('insightQuestion').disabled=true;
+  try{
+    const prompt=buildInsightPrompt(summary,['budget','perf','trend','opt','alert'],q);
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:prompt}]})});
+    const data=await res.json();
+    const text=data.content?.find(b=>b.type==='text')?.text||'';
+    let parsed;try{parsed=JSON.parse(text.replace(/```json|```/g,'').trim());}catch(e){parsed={answer:text};}
+    const answer=parsed.answer||parsed.summary||text;
+    const qaCard=document.getElementById('insightQACard');qaCard.style.display='block';
+    const qaList=document.getElementById('insightQAList');
+    qaList.innerHTML+=`<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--accent);font-weight:500;margin-bottom:4px">❓ ${q}</div><div style="font-size:13px;color:var(--text);line-height:1.7;background:var(--bg3);padding:10px;border-radius:6px">${answer}</div></div>`;
+    document.getElementById('insightQuestion').value='';
+    showToast('Đã trả lời','ok');
+  }catch(e){showToast('Lỗi: '+e.message,'err');}
+  finally{document.getElementById('btnAskInsight').disabled=false;document.getElementById('insightQuestion').disabled=false;}
+});
+
+document.getElementById('insightQuestion').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('btnAskInsight').click();});
+
+document.getElementById('btnCopyInsights').addEventListener('click',()=>{
+  const txt=document.getElementById('insightCards').innerText;
+  navigator.clipboard.writeText(txt).then(()=>showToast('Đã copy insights','ok')).catch(()=>showToast('Copy thất bại','err'));
+});
+
+document.getElementById('btnExportInsightPDF').addEventListener('click',()=>{
+  const{jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210,M=15;let y=M;
+  doc.setFillColor(15,15,14);doc.rect(0,0,W,22,'F');
+  doc.setTextColor(211,209,199);doc.setFontSize(14);doc.setFont('helvetica','bold');
+  doc.text('IMM BDA — AI Insights Report',M,14);
+  doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(107,105,99);
+  doc.text(new Date().toLocaleString('vi-VN'),M,20);y=30;
+  const txt=document.getElementById('insightCards').innerText;
+  const lines=doc.splitTextToSize(txt,W-2*M);
+  doc.setFontSize(9);doc.setTextColor(180,178,170);
+  lines.forEach(line=>{if(y>280){doc.addPage();y=15;}doc.text(line,M,y);y+=5;});
+  doc.save(`IMM_BDA_Insights_${new Date().toISOString().slice(0,10)}.pdf`);showToast('PDF exported','ok');
+});
+
+@keyframes spin{to{transform:rotate(360deg)}}
 
 // ============================================================
 // EXPORT
