@@ -419,6 +419,7 @@ input[type=file]{display:none}
       <div class="tab active" data-view="overview"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> Overview</div>
       <div class="tab" data-view="mom"><i class="ti ti-arrows-diff" aria-hidden="true"></i> Period Comparison</div>
       <div class="tab" data-view="campaigns"><i class="ti ti-list-details" aria-hidden="true"></i> Campaigns</div>
+      <div class="tab" data-view="rawdata"><i class="ti ti-database" aria-hidden="true"></i> Raw Data <span id="rawCountBadge" class="count-badge" style="display:none">0</span></div>
     </div>
 
     <!-- Overview -->
@@ -515,6 +516,69 @@ input[type=file]{display:none}
       </div>
     </div>
   </div>
+
+    <!-- Raw Data view -->
+    <div id="viewRawdata" style="display:none">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" style="margin:0">
+            <i class="ti ti-database" style="font-size:13px;vertical-align:-2px;margin-right:6px" aria-hidden="true"></i>
+            Toàn bộ dòng data <span id="rawTotalLabel" style="color:var(--t3);font-weight:400"></span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="text" id="rawSearch" placeholder="Tìm kiếm..." style="width:200px;padding:6px 10px;font-size:12px">
+            <select id="rawFilterClient" style="font-size:12px;padding:6px 9px"><option value="">All clients</option></select>
+            <select id="rawFilterPlatform" style="font-size:12px;padding:6px 9px"><option value="">All platforms</option></select>
+            <button class="btn sm ghost" id="btnRawReset"><i class="ti ti-x" aria-hidden="true"></i> Reset</button>
+            <button class="btn sm" id="btnRawExportCsv"><i class="ti ti-file-download" aria-hidden="true"></i> Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Summary strip -->
+        <div id="rawSummaryStrip" style="display:flex;gap:20px;flex-wrap:wrap;padding:10px 0 14px;border-bottom:1px solid var(--bd);margin-bottom:14px;font-size:12px;color:var(--t2)"></div>
+
+        <div class="table-wrap">
+          <table class="data-table" id="rawTable">
+            <thead><tr>
+              <th data-rcol="idx" style="width:40px"># <span class="si">↕</span></th>
+              <th data-rcol="date">Date <span class="si">↕</span></th>
+              <th data-rcol="client">Client <span class="si">↕</span></th>
+              <th data-rcol="campaign">Campaign <span class="si">↕</span></th>
+              <th data-rcol="platform">Platform <span class="si">↕</span></th>
+              <th data-rcol="spend">Spend <span class="si">↕</span></th>
+              <th data-rcol="impressions">Impressions <span class="si">↕</span></th>
+              <th data-rcol="clicks">Clicks <span class="si">↕</span></th>
+              <th data-rcol="ctr">CTR <span class="si">↕</span></th>
+              <th data-rcol="conversions">Conv. <span class="si">↕</span></th>
+              <th data-rcol="cpc">CPC <span class="si">↕</span></th>
+              <th data-rcol="revenue">Revenue <span class="si">↕</span></th>
+              <th data-rcol="roas">ROAS <span class="si">↕</span></th>
+              <th data-rcol="target_spend">T. Spend <span class="si">↕</span></th>
+              <th data-rcol="target_clicks">T. Clicks <span class="si">↕</span></th>
+              <th data-rcol="target_conversions">T. Conv. <span class="si">↕</span></th>
+              <th data-rcol="target_revenue">T. Revenue <span class="si">↕</span></th>
+            </tr></thead>
+            <tbody id="rawTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;color:var(--t3)" id="rawPagLabel"></div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn sm ghost" id="btnRawPrev"><i class="ti ti-chevron-left" aria-hidden="true"></i></button>
+            <div id="rawPageNums" style="display:flex;gap:4px"></div>
+            <button class="btn sm ghost" id="btnRawNext"><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
+            <select id="rawPageSize" style="font-size:12px;padding:5px 8px;width:auto">
+              <option value="25">25 / trang</option>
+              <option value="50" selected>50 / trang</option>
+              <option value="100">100 / trang</option>
+              <option value="9999">Tất cả</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
 
   <!-- Empty state -->
   <div class="empty-state" id="emptyState">
@@ -732,9 +796,29 @@ const chartDefaults={responsive:true,maintainAspectRatio:false,plugins:{legend:{
 
 function renderKPIs(data){
   const tot=aggTot(data);lastTotals=tot;const ht=tot.tspend>0;
-  const ctr=tot.ctr,cpc=tot.cpc,cpl=tot.conversions?tot.spend/tot.conversions:0,roas=tot.roas;
-  function kh(lbl,val,a,t){let sub='',bar='';if(ht&&t>0){const pc=Math.round(a/t*100);const col=pc>=100?'var(--green)':pc>=80?'var(--yellow)':'var(--red)';sub=`<div class="kpi-sub">Target: ${fU(t)} <span style="color:${col};font-weight:600">${pc}%</span></div>`;bar=`<div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100,pc)}%;background:${col}"></div></div>`;}return`<div class="kpi"><div class="kpi-label">${lbl}</div><div class="kpi-value">${val}</div>${sub}${bar}</div>`;}
-  document.getElementById('kpiGrid').innerHTML=kh('Spend',fU(tot.spend),tot.spend,tot.tspend)+kh('Impressions',fmt(tot.impressions),0,0)+kh('Clicks',fmt(tot.clicks),tot.clicks,tot.tclicks)+`<div class="kpi"><div class="kpi-label">CTR</div><div class="kpi-value">${fP(ctr)}</div></div>`+`<div class="kpi"><div class="kpi-label">CPC</div><div class="kpi-value">${fU(cpc)}</div></div>`+kh('Conversions',fmt(tot.conversions),tot.conversions,tot.tconversions)+`<div class="kpi"><div class="kpi-label">CPL</div><div class="kpi-value">${fU(cpl)}</div></div>`+`<div class="kpi"><div class="kpi-label">ROAS</div><div class="kpi-value">${roas.toFixed(2)}x</div></div>`+kh('Revenue',fU(tot.revenue),tot.revenue,tot.trevenue);
+  const cpl=tot.conversions?tot.spend/tot.conversions:0;
+  const kpiColors={Spend:'#5ba3e8',Impressions:'#7c70cf',Clicks:'#5ba3e8',CTR:'#d4537e',CPC:'#ba7517',Conversions:'#22c48a',CPL:'#e05a3a',ROAS:'#0077b5',Revenue:'#22c48a'};
+  function kh(lbl,val,a,t){
+    const col=kpiColors[lbl]||'#5ba3e8';
+    let sub='',bar='';
+    if(ht&&t>0){
+      const pc=Math.round(a/t*100);
+      const pCol=pc>=100?'var(--green)':pc>=80?'var(--amber)':'var(--red)';
+      sub=`<div class="kpi-sub"><span style="color:var(--t3)">Target ${fU(t)}</span> <span style="color:${pCol};font-weight:600;margin-left:4px">${pc}%</span></div>`;
+      bar=`<div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100,pc)}%;background:${pCol}"></div></div>`;
+    }
+    return`<div class="kpi" style="--kpi-color:${col}"><div class="kpi-label">${lbl}</div><div class="kpi-value">${val}</div>${sub}${bar}</div>`;
+  }
+  document.getElementById('kpiGrid').innerHTML=
+    kh('Spend',fU(tot.spend),tot.spend,tot.tspend)+
+    kh('Impressions',fmt(tot.impressions),0,0)+
+    kh('Clicks',fmt(tot.clicks),tot.clicks,tot.tclicks)+
+    `<div class="kpi" style="--kpi-color:#d4537e"><div class="kpi-label">CTR</div><div class="kpi-value">${fP(tot.ctr)}</div></div>`+
+    `<div class="kpi" style="--kpi-color:#ba7517"><div class="kpi-label">CPC</div><div class="kpi-value">${fU(tot.cpc)}</div></div>`+
+    kh('Conversions',fmt(tot.conversions),tot.conversions,tot.tconversions)+
+    `<div class="kpi" style="--kpi-color:#e05a3a"><div class="kpi-label">CPL</div><div class="kpi-value">${fU(cpl)}</div></div>`+
+    `<div class="kpi" style="--kpi-color:#0077b5"><div class="kpi-label">ROAS</div><div class="kpi-value">${tot.roas.toFixed(2)}x</div></div>`+
+    kh('Revenue',fU(tot.revenue),tot.revenue,tot.trevenue);
 }
 
 function renderOverviewCharts(data){
@@ -772,7 +856,26 @@ function renderMoM(allData,mpt){
   const ct=aggTot(cData),pt2=aggTot(pData);
   document.getElementById('momBannerText').innerHTML=`So sánh <strong>${pLabel(curKey,mpt)}</strong> vs <strong>${prevKey?pLabel(prevKey,mpt):'(chọn kỳ so sánh)'}</strong>`;
   const metrics=[{lbl:'Spend',cur:ct.spend,prev:pt2.spend,fmt:fU,c:'#378ADD'},{lbl:'Clicks',cur:ct.clicks,prev:pt2.clicks,fmt:v=>fmt(v),c:'#7C70CF'},{lbl:'Conversions',cur:ct.conversions,prev:pt2.conversions,fmt:v=>fmt(v),c:'var(--green)'},{lbl:'Revenue',cur:ct.revenue,prev:pt2.revenue,fmt:fU,c:'var(--yellow)'},{lbl:'CTR',cur:ct.ctr,prev:pt2.ctr,fmt:fP,c:'#D4537E'},{lbl:'ROAS',cur:ct.roas,prev:pt2.roas,fmt:v=>v.toFixed(2)+'x',c:'#0077B5'}];
-  document.getElementById('momKpiGrid').innerHTML=metrics.map(m=>{const d=m.cur-m.prev;const pct=m.prev?Math.round(d/m.prev*100):null;const sg=d>=0?'+':'';const col=d>0?'var(--green)':d<0?'var(--red)':'var(--text2)';const ar=d>0?'↑':d<0?'↓':'→';const mx=Math.max(m.cur,m.prev,1);return`<div class="mom-kpi"><div class="mom-kpi-label">${m.lbl}</div><div class="mom-kpi-row"><span class="mom-kpi-cur">${m.fmt(m.cur)}</span><span style="color:${col};font-size:12px;font-weight:500">${ar} ${sg}${pct!==null?pct+'%':''}</span></div><div class="mom-kpi-prev">Kỳ trước: ${m.fmt(m.prev)}</div><div class="mom-bars"><div class="mom-bar" style="height:${Math.round(m.prev/mx*20)+4}px;background:var(--border2)"></div><div class="mom-bar" style="height:${Math.round(m.cur/mx*20)+4}px;background:${m.c}"></div></div></div>`;}).join('');
+  const momColors=['#5ba3e8','#7c70cf','#22c48a','#d4870f','#d4537e','#0077b5'];
+  document.getElementById('momKpiGrid').innerHTML=metrics.map((m,idx)=>{
+    const d=m.cur-m.prev;const pct=m.prev?Math.round(d/m.prev*100):null;
+    const sg=d>=0?'+':'';const arr=d>0?'↑':d<0?'↓':'→';
+    const dcls=d>0?'up':d<0?'dn':'fl';
+    const mx=Math.max(m.cur,m.prev,1);
+    const col=momColors[idx%momColors.length];
+    return`<div class="mom-kpi" style="--mom-color:${col}">
+      <div class="mom-kpi-label">${m.lbl}</div>
+      <div class="mom-kpi-row">
+        <span class="mom-kpi-cur">${m.fmt(m.cur)}</span>
+        <span class="mom-delta ${dcls}">${arr} ${sg}${pct!==null?pct+'%':''}</span>
+      </div>
+      <div class="mom-kpi-prev">Kỳ trước: ${m.fmt(m.prev)}</div>
+      <div class="mom-bars">
+        <div class="mom-bar" style="height:${Math.round(m.prev/mx*24)+4}px;background:var(--bd2)"></div>
+        <div class="mom-bar" style="height:${Math.round(m.cur/mx*24)+4}px;background:${col}"></div>
+      </div>
+    </div>`;
+  }).join('');
   const bpC={};cData.forEach(r=>{const k=r.platform||'?';if(!bpC[k])bpC[k]={s:0,cv:0};bpC[k].s+=n(r.spend);bpC[k].cv+=n(r.conversions);});
   const bpP={};pData.forEach(r=>{const k=r.platform||'?';if(!bpP[k])bpP[k]={s:0,cv:0};bpP[k].s+=n(r.spend);bpP[k].cv+=n(r.conversions);});
   const plats=[...new Set([...Object.keys(bpC),...Object.keys(bpP)])].sort();const pColors=plats.map((p,i)=>gPC(p,i).bg);
@@ -791,8 +894,153 @@ document.querySelectorAll('#mainTable th[data-col]').forEach(th=>{th.addEventLis
 
 function render(){const d=getFiltered();if(!d.length)return;renderKPIs(d);renderOverviewCharts(d);renderMoM(rawData,momPT);renderCampTable(d);}
 
-// View tabs
-document.querySelectorAll('.tab[data-view]').forEach(tab=>{tab.addEventListener('click',()=>{document.querySelectorAll('.tab[data-view]').forEach(t=>t.classList.remove('active'));tab.classList.add('active');currentView=tab.dataset.view;document.getElementById('viewOverview').style.display=currentView==='overview'?'block':'none';document.getElementById('viewMom').style.display=currentView==='mom'?'block':'none';document.getElementById('viewCampaigns').style.display=currentView==='campaigns'?'block':'none';});});
+// View tabs — add rawdata
+document.querySelectorAll('.tab[data-view]').forEach(tab=>{tab.addEventListener('click',()=>{document.querySelectorAll('.tab[data-view]').forEach(t=>t.classList.remove('active'));tab.classList.add('active');currentView=tab.dataset.view;document.getElementById('viewOverview').style.display=currentView==='overview'?'block':'none';document.getElementById('viewMom').style.display=currentView==='mom'?'block':'none';document.getElementById('viewCampaigns').style.display=currentView==='campaigns'?'block':'none';document.getElementById('viewRawdata').style.display=currentView==='rawdata'?'block':'none';if(currentView==='rawdata')renderRawData();});});
+
+// ============================================================
+// RAW DATA VIEW
+// ============================================================
+let rawPage=1,rawSortCol='idx',rawSortAsc=true,rawFiltered=[];
+
+function buildRawFilters(){
+  const clients=[...new Set(rawData.map(r=>r.client).filter(Boolean))].sort();
+  const platforms=[...new Set(rawData.map(r=>r.platform).filter(Boolean))].sort();
+  const rc=document.getElementById('rawFilterClient');
+  const rp=document.getElementById('rawFilterPlatform');
+  const cc=rc.value,cp=rp.value;
+  rc.innerHTML='<option value="">All clients</option>'+clients.map(c=>`<option ${c===cc?'selected':''}>${c}</option>`).join('');
+  rp.innerHTML='<option value="">All platforms</option>'+platforms.map(p=>`<option ${p===cp?'selected':''}>${p}</option>`).join('');
+}
+
+function getFilteredRaw(){
+  const q=document.getElementById('rawSearch').value.toLowerCase().trim();
+  const fc=document.getElementById('rawFilterClient').value;
+  const fp=document.getElementById('rawFilterPlatform').value;
+  let d=rawData.map((r,i)=>({...r,_idx:i+1}));
+  if(q)d=d.filter(r=>Object.values(r).some(v=>String(v).toLowerCase().includes(q)));
+  if(fc)d=d.filter(r=>r.client===fc);
+  if(fp)d=d.filter(r=>r.platform===fp);
+  return d;
+}
+
+function renderRawSummary(data){
+  const tot={spend:0,impressions:0,clicks:0,conversions:0,revenue:0};
+  data.forEach(r=>{tot.spend+=n(r.spend);tot.impressions+=n(r.impressions);tot.clicks+=n(r.clicks);tot.conversions+=n(r.conversions);tot.revenue+=n(r.revenue);});
+  document.getElementById('rawSummaryStrip').innerHTML=[
+    {lbl:'Dòng',val:data.length.toLocaleString()},
+    {lbl:'Spend',val:fU(tot.spend)},
+    {lbl:'Impressions',val:fmt(tot.impressions)},
+    {lbl:'Clicks',val:fmt(tot.clicks)},
+    {lbl:'Conversions',val:fmt(tot.conversions)},
+    {lbl:'Revenue',val:fU(tot.revenue)},
+    {lbl:'CTR',val:tot.impressions?fP(tot.clicks/tot.impressions*100):'—'},
+    {lbl:'ROAS',val:tot.spend?(tot.revenue/tot.spend).toFixed(2)+'x':'—'},
+  ].map(k=>`<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">${k.lbl}</span><span style="font-size:14px;font-weight:600;color:var(--t1)">${k.val}</span></div>`).join('');
+}
+
+function renderRawData(){
+  buildRawFilters();
+  let data=getFilteredRaw();
+  // sort
+  data=[...data].sort((a,b)=>{
+    const va=rawSortCol==='idx'?a._idx:a[rawSortCol]||'';
+    const vb=rawSortCol==='idx'?b._idx:b[rawSortCol]||'';
+    if(!isNaN(n(va))&&!isNaN(n(vb)))return rawSortAsc?n(va)-n(vb):n(vb)-n(va);
+    return rawSortAsc?String(va).localeCompare(String(vb)):String(vb).localeCompare(String(va));
+  });
+  rawFiltered=data;
+  renderRawSummary(data);
+
+  // pagination
+  const ps=parseInt(document.getElementById('rawPageSize').value)||50;
+  const total=data.length;
+  const totalPages=ps>=9999?1:Math.max(1,Math.ceil(total/ps));
+  rawPage=Math.min(rawPage,totalPages);
+  const start=(rawPage-1)*ps,end=ps>=9999?total:Math.min(start+ps,total);
+  const pageData=data.slice(start,end);
+
+  document.getElementById('rawTotalLabel').textContent=`(${total.toLocaleString()} dòng)`;
+  document.getElementById('rawCountBadge').textContent=total;
+  document.getElementById('rawCountBadge').style.display='inline-block';
+  document.getElementById('rawPagLabel').textContent=ps>=9999?`Hiển thị ${total} dòng`:`Hiển thị ${start+1}–${end} / ${total} dòng`;
+
+  // page nums
+  const pn=document.getElementById('rawPageNums');pn.innerHTML='';
+  const maxP=5;let lo=Math.max(1,rawPage-2),hi=Math.min(totalPages,lo+maxP-1);
+  if(hi-lo<maxP-1)lo=Math.max(1,hi-maxP+1);
+  for(let i=lo;i<=hi;i++){const b=document.createElement('button');b.className='btn sm'+(i===rawPage?' primary':'  ghost');b.textContent=i;b.onclick=(()=>{const pg=i;return()=>{rawPage=pg;renderRawData();};})();pn.appendChild(b);}
+  document.getElementById('btnRawPrev').disabled=rawPage<=1;
+  document.getElementById('btnRawNext').disabled=rawPage>=totalPages;
+
+  // sort headers
+  document.querySelectorAll('#rawTable th[data-rcol]').forEach(th=>{
+    th.classList.toggle('sorted',th.dataset.rcol===rawSortCol);
+    const si=th.querySelector('.si');if(si)si.textContent=th.dataset.rcol===rawSortCol?(rawSortAsc?'↑':'↓'):'↕';
+  });
+
+  // rows
+  const tbody=document.getElementById('rawTableBody');
+  if(!pageData.length){tbody.innerHTML=`<tr><td colspan="17" style="text-align:center;padding:32px;color:var(--t3)"><i class="ti ti-search-off" style="font-size:24px;display:block;margin-bottom:8px"></i>Không tìm thấy dòng nào</td></tr>`;return;}
+
+  tbody.innerHTML=pageData.map((r,i)=>{
+    const spend=n(r.spend),impr=n(r.impressions),clk=n(r.clicks),conv=n(r.conversions),rev=n(r.revenue);
+    const ctr=impr?clk/impr*100:0;const cpc=clk?spend/clk:0;const roas=spend?rev/spend:0;
+    const tsp=n(r.target_spend),tclk=n(r.target_clicks),tcv=n(r.target_conversions),trv=n(r.target_revenue);
+    const rowBg=i%2===0?'':'background:rgba(255,255,255,.015)';
+    const dateDisplay=r.period_key&&r.period_type&&r.period_type!=='daily'?`<span style="font-size:11px">${pLabel(r.period_key,r.period_type)}</span>`:r.date||'—';
+    return`<tr style="${rowBg}">
+      <td style="color:var(--t3);font-size:11px">${r._idx}</td>
+      <td style="color:var(--t2);font-size:12px">${dateDisplay}</td>
+      <td style="font-weight:500">${r.client||'—'}</td>
+      <td style="color:var(--t2)">${r.campaign||'—'}</td>
+      <td>${pBadge(r.platform||'—')}</td>
+      <td style="font-weight:500">${fU(spend)}</td>
+      <td style="color:var(--t2)">${fmt(impr)}</td>
+      <td>${fmt(clk)}</td>
+      <td style="color:var(--t2)">${fP(ctr)}</td>
+      <td style="font-weight:500">${fmt(conv)}</td>
+      <td style="color:var(--t2)">${fU(cpc)}</td>
+      <td style="font-weight:500;color:var(--green)">${fU(rev)}</td>
+      <td style="color:${roas>=2?'var(--green)':roas>=1?'var(--t1)':'var(--red)'};font-weight:500">${roas.toFixed(2)}x</td>
+      <td style="color:var(--t3)">${tsp?fU(tsp):'—'}</td>
+      <td style="color:var(--t3)">${tclk?fmt(tclk):'—'}</td>
+      <td style="color:var(--t3)">${tcv?fmt(tcv):'—'}</td>
+      <td style="color:var(--t3)">${trv?fU(trv):'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// Raw data events
+document.getElementById('rawSearch').addEventListener('input',()=>{rawPage=1;renderRawData();});
+document.getElementById('rawFilterClient').addEventListener('change',()=>{rawPage=1;renderRawData();});
+document.getElementById('rawFilterPlatform').addEventListener('change',()=>{rawPage=1;renderRawData();});
+document.getElementById('rawPageSize').addEventListener('change',()=>{rawPage=1;renderRawData();});
+document.getElementById('btnRawPrev').addEventListener('click',()=>{if(rawPage>1){rawPage--;renderRawData();}});
+document.getElementById('btnRawNext').addEventListener('click',()=>{rawPage++;renderRawData();});
+document.getElementById('btnRawReset').addEventListener('click',()=>{document.getElementById('rawSearch').value='';document.getElementById('rawFilterClient').value='';document.getElementById('rawFilterPlatform').value='';rawPage=1;renderRawData();});
+
+document.querySelectorAll('#rawTable th[data-rcol]').forEach(th=>{
+  th.addEventListener('click',()=>{
+    if(rawSortCol===th.dataset.rcol)rawSortAsc=!rawSortAsc;
+    else{rawSortCol=th.dataset.rcol;rawSortAsc=true;}
+    renderRawData();
+  });
+});
+
+// Export raw CSV
+document.getElementById('btnRawExportCsv').addEventListener('click',()=>{
+  const data=rawFiltered.length?rawFiltered:getFilteredRaw();
+  if(!data.length){showToast('Không có data để export','err');return;}
+  const headers=['Date','Client','Campaign','Platform','Spend','Impressions','Clicks','CTR','Conversions','CPC','Revenue','ROAS','Target_Spend','Target_Clicks','Target_Conversions','Target_Revenue'];
+  const rows=data.map(r=>{
+    const sp=n(r.spend),im=n(r.impressions),cl=n(r.clicks),cv=n(r.conversions),rv=n(r.revenue);
+    const ctr=im?cl/im*100:0;const cpc=cl?sp/cl:0;const roas=sp?rv/sp:0;
+    return[r.date||r.period_key||'',r.client,r.campaign,r.platform,sp,im,cl,ctr.toFixed(2)+'%',cv,cpc.toFixed(2),rv,roas.toFixed(2),n(r.target_spend),n(r.target_clicks),n(r.target_conversions),n(r.target_revenue)].join(',');
+  });
+  const csv=[headers.join(','),...rows].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download=`IMM_BDA_RawData_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+  showToast(`Exported ${data.length} dòng`,'ok');
+});
 
 // ============================================================
 // EXPORT
